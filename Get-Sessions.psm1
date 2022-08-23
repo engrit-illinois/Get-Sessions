@@ -365,7 +365,8 @@ function Get-Sessions {
 	}
 	
 	function Order-Sessions($sessions) {
-		$sessions | Sort COMPUTER | Select -Property COMPUTER,USERNAME,SESSIONNAME,STATE,ID,"IDLE TIME","LOGON DATETIME","LOGON DATE","LOGON TIME","LOGON PERIOD",TYPE,DEVICE
+		# Order and also remove irrelevant data
+		$sessions | Sort COMPUTER | Select -Property COMPUTER,USERNAME,SESSIONNAME,STATE,ID,"IDLE TIME","LOGON DATETIME"
 	}
 	
 	function Combine-CompSessions($comps) {
@@ -380,7 +381,7 @@ function Get-Sessions {
 	
 	function Print-Sessions($sessions) {
 		log " " -nots
-		$sessions = $sessions | Format-Table -Property COMPUTER,USERNAME,SESSIONNAME,STATE,ID,"LOGON DATETIME"
+		$sessions = $sessions | Format-Table -Property COMPUTER,USERNAME,SESSIONNAME,STATE,ID,"IDLE TIME","LOGON DATETIME"
 		$sessions = ($sessions | Out-String).Trim()
 		log $sessions -nots
 		log " " -nots
