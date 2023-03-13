@@ -67,6 +67,56 @@ function Get-Sessions {
 		$comps
 	}
 	
+	function Get-Sessions($compName) {
+		log "Getting session info..." -level 2
+		
+		$sessions = @()
+		
+		log "Testing if computer `"$compName`" responds..." -level 2
+		if(Test-Connection -ComputerName $compName -Quiet -Count $PingCount) {
+			log "Computer `"$compName`" responded." -level 3
+			
+			#$sessionError = $true
+			log "Getting `"query session`" info..." -level 2
+			try {
+				# Have to dump errors to $null, otherwise they are output to the screen, with no way to catch them
+				$allSessionStrings = query session /server:$compName 2>$null
+				#$sessionStrings
+				#$sessionError = $false
+			}
+			catch {
+				log "Error getting `"query session`" info!" -level 3
+				#$sessionError = $true
+			}
+			log "Done getting `"query session`" info." -level 2
+			$allSessions = Munge-AllSessionStrings $allSessionStrings $compName
+			
+			# For some reason `query session` doesn't return the LOGIN TIME nor IDLE TIME properties
+			# But `query user` does, so grab that too, and we'll handle merging the data later.
+			# Also, FYI, `query user` doesn't return non-user sessions. If no user sessions exist, returns "No User exists for *"
+			log "Getting `"query user`" info..." -level 2
+			try {
+				# Have to dump errors to $null, otherwise they are output to the screen, with no way to catch them
+				$userSessionStrings = query user /server:$compName 2>$null
+				#$sessionStrings
+				#$sessionError = $false
+			}
+			catch {
+				log "Error getting `"query user`" info!" -level 3
+				#$sessionError = $true
+			}
+			log "Done getting `"query user`" info." -level 2
+			$userSessions = Munge-UserSessionStrings $userSessionStrings $compName
+			
+			$sessions = Combine-Sessions $allSessions $userSessions
+		}
+		else {
+			log "Computer `"$compName`" did not respond!" -level 3
+		}
+
+		$sessions
+	}
+	
 	function Get-SessionObjects($sessionStrings) {
 		$sessionObjects = @()
 		# Session info is returned as an array of ugly pre-formatted strings
@@ -254,6 +304,20 @@ function Get-Sessions {
 					$dateTime = Get-Date $dateTimeString
 					$session | Add-Member -NotePropertyName "LOGON DATETIME" -NotePropertyValue $dateTime
 				}
+				# If the local system time (of the machine running the script) doesn't use AM/PM, it won't be returned by query user
+				elseif(
+					($session."LOGON DATE") -and
+					($session."LOGON TIME") -and
+					(-not ($session."LOGON PERIOD"))
+				) {
+					$dateTimeString = "$($session."LOGON DATE") $($session."LOGON TIME")"
+					$dateTime = Get-Date $dateTimeString
+					$session | Add-Member -NotePropertyName "LOGON DATETIME" -NotePropertyValue $dateTime
+				}
+				else {
+					log "Returned value of LOGON TIME was not in a recognized format!" -level 4
+					$session | Add-Member -NotePropertyName "LOGON DATETIME" -NotePropertyValue "unknown"
+				}
 				
 				log "Computer: $($session.COMPUTER), User: $($session.USERNAME), SessionName: $($session.SESSIONNAME), ID: $($session.ID), State: $($session.STATE), Idle time: $($session."IDLE TIME"), Logon datetime: $($session."LOGON DATETIME")" -level 4
 					
@@ -311,56 +375,6 @@ function Get-Sessions {
 		$sessions += @($newAllSessions)
 		$sessions += @($newUserSessions)
 		
-		$sessions
-	}
-	
-	function Get-Sessions($compName) {
-		log "Getting session info..." -level 2
-		
-		$sessions = @()
-		
-		log "Testing if computer `"$compName`" responds..." -level 2
-		if(Test-Connection -ComputerName $compName -Quiet -Count $PingCount) {
-			log "Computer `"$compName`" responded." -level 3
-			
-			#$sessionError = $true
-			log "Getting `"query session`" info..." -level 2
-			try {
-				# Have to dump errors to $null, otherwise they are output to the screen, with no way to catch them
-				$allSessionStrings = query session /server:$compName 2>$null
-				#$sessionStrings
-				#$sessionError = $false
-			}
-			catch {
-				log "Error getting `"query session`" info!" -level 3
-				#$sessionError = $true
-			}
-			log "Done getting `"query session`" info." -level 2
-			$allSessions = Munge-AllSessionStrings $allSessionStrings $compName
-			
-			# For some reason `query session` doesn't return the LOGIN TIME nor IDLE TIME properties
-			# But `query user` does, so grab that too, and we'll handle merging the data later.
-			# Also, FYI, `query user` doesn't return non-user sessions. If no user sessions exist, returns "No User exists for *"
-			log "Getting `"query user`" info..." -level 2
-			try {
-				# Have to dump errors to $null, otherwise they are output to the screen, with no way to catch them
-				$userSessionStrings = query user /server:$compName 2>$null
-				#$sessionStrings
-				#$sessionError = $false
-			}
-			catch {
-				log "Error getting `"query user`" info!" -level 3
-				#$sessionError = $true
-			}
-			log "Done getting `"query user`" info." -level 2
-			$userSessions = Munge-UserSessionStrings $userSessionStrings $compName
-			
-			$sessions = Combine-Sessions $allSessions $userSessions
-		}
-		else {
-			log "Computer `"$compName`" did not respond!" -level 3
-		}
-
 		$sessions
 	}
 	
