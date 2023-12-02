@@ -39,10 +39,22 @@ function Get-Sessions {
 		$compNames = @()
 		log "Getting computer names..."
 		if($OUDN) {
-		    $compNames = (Get-ADComputer -SearchBase $OUDN -Filter { Name -like $nameQuery }).Name
+		    $compNames = Get-ADComputer -SearchBase $OUDN -Filter { Name -like $nameQuery } | Select -ExpandProperty "Name"
 		}
 		else {
-		    $compNames = (Get-ADComputer -Filter { Name -like $nameQuery }).Name
+		    $compNames = Get-ADComputer -Filter { Name -like $nameQuery } | Select -ExpandProperty "Name"
+		}
+		if($compNames) {
+			$compNamesCount = $compNames.count
+			if($compNames.count -gt 0) {
+				log "Found $compNamesCount matching computers in AD."
+			}
+			else {
+				Throw "Invalid response when querying computers from AD!"
+			}
+		}
+		else {
+			Throw "Found 0 matching computers in AD!"
 		}
 		log "Done getting computer names..."
 		$compNames
@@ -59,7 +71,7 @@ function Get-Sessions {
 				Name = $compName
 				Sessions = @()
 			}
-			$compObject.Sessions = Get-Sessions $compName
+			$compObject.Sessions = Get-CompSessions $compName
 			$comps += @($compObject)
 			log "Done processing `"$compName`"." -level 1
 		}
@@ -67,7 +79,7 @@ function Get-Sessions {
 		$comps
 	}
 	
-	function Get-Sessions($compName) {
+	function Get-CompSessions($compName) {
 		log "Getting session info..." -level 2
 		
 		$sessions = @()
