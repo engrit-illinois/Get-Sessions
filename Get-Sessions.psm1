@@ -138,9 +138,20 @@ function Get-Sessions {
 		log "Munging session info into object..." -level 2
 		$sessionData = $sessionStrings | foreach {
 			$result = (($_.trim() -replace "\s+",","))
+			
+			# Handle header row
 			if($result.EndsWith("IDLE,TIME,LOGON,TIME")) {
-				$result = $result -replace "IDLE,TIME,LOGON,TIME","IDLE TIME,LOGON DATE,LOGON TIME,LOGON PERIOD"
+				$result = $result.Replace("IDLE,TIME,LOGON,TIME","IDLE TIME,LOGON DATE,LOGON TIME,LOGON PERIOD")
 			}
+			
+			# Handle cases where the state is "Down".
+			# https://github.com/engrit-illinois/Get-Sessions/issues/2
+			$temp = $result.Replace(",","")
+			$temp = $temp -replace "\d+",""
+			if($temp -eq "Down") {
+				$result = ",,$result,,"
+			}
+			
 			$result
 		}
 		# and then turn that into a proper object
